@@ -1,15 +1,26 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <ctype.h>
 #include <math.h>
 
 #define MAXOP   100 /* max size of operand/operator */
 #define NUMBER  '0' /* signal that a number has been found */
-#define OPER    '*' /* signal that operator has been found */
+#define MCO     -10 /* signal that multi-char operator has been found */
 #define MAXVAL  100 /* max depth of value stack */
 #define BUFSIZE 100 /* max size of character buffer */
+#define MAXLINE 1000
 #define TRUE    1
 #define FALSE   0
+
+/* TODO:
+ * - function istext, tests to see if a char is possibly part of an
+ *   operator string (alpha + punctuation, or !isdigit and !isspace).
+ */
+
+int mygetline(char [], int);
+
+void handlemco(char []);
 
 int getop(char []);
 void push(double);
@@ -26,25 +37,22 @@ int bp = 0;
 double vstack[MAXVAL];
 int sp = 0; /* current position on the stack */
 
+char line[MAXLINE];
+int lp = 0;
+
 int main() {
     /* Reverse Polish Notation calculator */
     int type;
     double op2;
     char s[MAXOP];
-
-    while ((type = getop(s)) != EOF) {
+    mygetline(line, MAXLINE);
+    while ((type = getop(s)) != '\0') {
         switch (type) {
             case NUMBER:
                 push(atof(s));
                 break;
-            case 't':
-                push(tan(pop()));
-                break;
-            case 'c':
-                push(cos(pop()));
-                break;
-            case 's':
-                push(sin(pop()));
+            case MCO:
+                handlemco(s);
                 break;
             case '+':
                 push(pop() + pop());
@@ -87,41 +95,57 @@ int getop(char s[]) {
     int i = 0;
     int c, ch;
     int mco = FALSE;    /* whether we have a multi-char operator */
-    while ((s[0] = c = getch()) == ' ' || c == '\t'); 
-    if (c == '\n' || c == EOF) {
-        /* preliminary check to see if we are at a newline or EOF */
+    while ((s[0] = c = line[lp++]) == ' ' || c == '\t'); 
+    if (c == '\n' || c == '\0') {
+        /* preliminary check to see if we are at a newline or EOS */
+        if (c == '\0') {
+            lp = 0;
+        }
         return c;
     }
     if (!isdigit(c) && c != '.') {
         /* c is a sign or operator */
-        if ((c == '+' || c == '-') && (isdigit(ch = peekch()) || ch == '.')) {
+        s[i] = c;
+        if ((c == '+' || c == '-') && (isdigit(ch = line[lp]) || ch == '.')) {
             /* c is a sign, not an operator */
-            s[i] = c;
         } else {
-            s[i] = c;
-            while (!isspace(s[++i] = c = getch()) && !isdigit(c) && c != '.') {
+            while (!isspace(s[++i] = c = line[lp++]) && !isdigit(c) && c != '.') {
                 mco = TRUE;
             }
-            ungetch(c);
-            s[i] = '\0';
+            lp--;
+            s[i--] = '\0';
             if (mco == TRUE) {
-                return s[0];
+                return MCO;
             } else {
-                return s[--i];
+                return s[i];
             }
         }
     }
     if (isdigit(c) || c == '-' || c == '+') {   /* collect integer part */
-        while (isdigit(s[++i] = c = getch()));
+        while (isdigit(s[++i] = c = line[lp++]));
     }
-    if (c == '.' || c == '-' || c == '+') { /* collect fraction part */
-        while (isdigit(s[++i] = c = getch()));
+    if (c == '.') { /* collect fraction part */
+        while (isdigit(s[++i] = c = line[lp++]));
     }
     s[i] = '\0';
-    if (c != EOF) {
-        ungetch(c);
+    if (c != '\0') {
+        lp--;
     }
     return NUMBER;
+}
+
+void handlemco(char s[]) {
+    double op2;
+    if (strcmp(s, "tan") == 0) {
+        push(tan(pop()));
+    } else if (strcmp(s, "sin") == 0) {
+        push(sin(pop()));
+    } else if (strcmp(s, "cos") == 0) {
+        push(cos(pop()));
+    } else if (strcmp(s, "**") == 0) {
+        op2 = pop();
+        push(pow(pop(), op2));
+    }
 }
 
 void push(double d) {
@@ -129,6 +153,7 @@ void push(double d) {
         vstack[sp++] = d;
     } else {
         printf("Error: Stack size exceeds limit.\n");
+        exit(1);
     }
 }
 
@@ -142,6 +167,7 @@ double pop() {
     }
 }
 
+/*
 char getch() {
     if (bp > 0) {
         return chbuf[--bp];
@@ -159,14 +185,15 @@ void ungetch(char ch) {
 }
 
 char peekch() {
-    /* Look at the next character without affecting the input stream. */
     char ch = getch();
     ungetch(ch);
     return ch;
 }
+*/
 
 int islimit(char ch) {
     /* Test whether a character is a delimiter separating operators
      * from operands. */
     return ((ch == ' ' || ch == '\t' || ch == '\0') ? TRUE : FALSE);
 }
+
