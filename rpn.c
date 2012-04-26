@@ -26,9 +26,7 @@ int getop(char []);
 void push(double);
 double pop();
 
-char getch();
-void ungetch(char);
-char peekch();
+int getnextline();
 int islimit(char);
 
 char chbuf[BUFSIZE];
@@ -46,7 +44,7 @@ int main() {
     double op2;
     char s[MAXOP];
     mygetline(line, MAXLINE);
-    while ((type = getop(s)) != '\0') {
+    while ((type = getop(s)) != EOF) {
         switch (type) {
             case NUMBER:
                 push(atof(s));
@@ -83,6 +81,9 @@ int main() {
             case '\n':
                 printf("%f\n", pop());
                 break;
+            case '\0':
+                getnextline();
+                break;
             default:
                 printf("Error: Unknown command: %d\n", type);
         }
@@ -96,11 +97,8 @@ int getop(char s[]) {
     int c, ch;
     int mco = FALSE;    /* whether we have a multi-char operator */
     while ((s[0] = c = line[lp++]) == ' ' || c == '\t'); 
-    if (c == '\n' || c == '\0') {
+    if (c == '\n' || c == EOF || c == '\0') {
         /* preliminary check to see if we are at a newline or EOS */
-        if (c == '\0') {
-            lp = 0;
-        }
         return c;
     }
     if (!isdigit(c) && c != '.') {
@@ -162,34 +160,16 @@ double pop() {
         return vstack[--sp];
     } else {
         printf("Error: Pop from empty stack.\n");
-        exit(0);
+        exit(1);
         return -1.0;
     }
 }
 
-/*
-char getch() {
-    if (bp > 0) {
-        return chbuf[--bp];
-    } else {
-        return getchar();
-    }
+int getnextline() {
+    lp = 0;
+    return mygetline(line, MAXLINE);
 }
 
-void ungetch(char ch) {
-    if (bp > BUFSIZE) {
-        printf("Error: Too many characters in buffer.\n");
-    } else {
-        chbuf[bp++] = ch;
-    }
-}
-
-char peekch() {
-    char ch = getch();
-    ungetch(ch);
-    return ch;
-}
-*/
 
 int islimit(char ch) {
     /* Test whether a character is a delimiter separating operators
