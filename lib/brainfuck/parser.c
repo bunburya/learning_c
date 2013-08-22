@@ -4,24 +4,44 @@
 #include "brainfuck.h"
 #define MAXLINE 998
 
-void parse(int, QUEUE *);
-void parseq(QUEUE *);
-void handle_loop();
+int read_file(FILE *, struct list *);
+void parse_prog(struct list *);
+void parse_char(char, struct list *, struct list *);
 
-int array[30000];
+struct list *prog;
 FILE *fp;
 int i = 0;
 
 int main(int argc, char *argv[]) {
     fp = fopen(argv[1], "r");
-    int c;
-    while ((c = fgetc(fp)) != EOF) {
-        parse(c, 0);
-    }
+    prog = new_list(1000);
+    read_file(fp, prog);
+    parse_prog(prog);
     return 0;
 }
 
-void parse(int c, QUEUE *loop) {
+int read_file(FILE *fp, struct list *ls) {
+    // Read file into memory
+    char c;
+    while ((c = fgetc(fp)) != EOF) {
+        push(ls, c);
+    }
+    push(ls, '\0');
+    // TODO: return 1 if problem reading from file
+    return 0;
+}
+
+void parse_prog(struct list *prog) {
+    struct list *cells = new_list(30000);
+    struct list *loops = new_list(1000);
+    int i; // position in program
+    char c;
+    while (c = peek(prog, i)) {
+        parse_char(c, cells, loops);
+    }
+}
+        
+void parse_char(char c, struct list *cells, struct list *loops) {
     switch (c) {
         case '>':
             i++;
@@ -30,54 +50,26 @@ void parse(int c, QUEUE *loop) {
             i--;
             break;
         case '+':
-            array[i]++;
+            incr(cells, i);
             break;
         case '-':
-            array[i]--;
+            decr(cells, i);
             break;
         case '.':
-            putchar(array[i]);
+            putchar(peek(cells, i));
             break;
         case ',':
-            array[i] = getchar();
+            assign(cells, i, getchar());
             break;
         case '[':
-            handle_loop(loop);
+            push(loops, i++);
             break;
-    }
-}
-
-void parseq(QUEUE *ql) {
-    QUEUE *q = copy(ql);
-    while (q->len > 0) {
-        parse(popleft(q), q);
-    }
-}
-
-int nextch(QUEUE *q) {
-    if (q == 0) {
-        return fgetc(fp);
-    } else {
-        return popleft(q);
-    }
-}
-    
-void handle_loop(QUEUE *lq) {
-    QUEUE *loop = new_queue();
-    int looplvl = 1;
-    int c;
-    do {
-        c = nextch(lq);
-        if (c == '[') {
-            looplvl++;
-        } else if (c == ']') {
-            looplvl--;
-        }
-        if (looplvl > 0) {
-            append(loop, c);
-        }
-    } while (looplvl > 0);
-    while (array[i] != 0) {
-        parseq(loop);
+        case ']':
+            if (peek(cells, i)) {
+                i = peek(loops, (loops->len)-1);
+            } else {
+                pop(loops);
+                i++;
+            }
     }
 }
